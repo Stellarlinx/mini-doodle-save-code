@@ -95,7 +95,7 @@ button{
 /* ===== CANVAS ===== */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = true;
 
 let IS_MOBILE = false;
 let GAME_WIDTH = 0;
@@ -170,7 +170,14 @@ let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
 /* ===== PLAYER ===== */
 
 const player = {
-  x:0,y:0,w:60,h:60,vx:0,vy:0
+  x:0,
+  y:0,
+  w:40,      // физический хитбокс
+  h:40,
+  drawW:50,  // визуальный размер (можно менять)
+  drawH:50,
+  vx:0,
+  vy:0
 };
 
 const GRAVITY = IS_MOBILE ? 0.4 : 0.38;
@@ -184,6 +191,8 @@ let platforms = [];
 let monsters = [];
 let springs = [];
 let coins = [];
+
+let springBoost = false;
 
 let lastTime = performance.now();
 
@@ -248,8 +257,14 @@ function startGame(){
 function makePlatform(x,y,type){
   return{
     x,y,
-    w:type==="normal"?65:55,
-    h:24,
+
+    // ⭐ визуальный размер платформы
+    drawW:type==="normal"?80:70,
+    drawH:32,
+
+    // ⭐ физический хитбокс (меньше)
+    w:(type==="normal"?80:70)*0.85,
+    h:32*0.5,
     type,
     vx:type==="move"?(Math.random()<.5?-1:1)*1.2:0,
     broken:false,
@@ -281,11 +296,15 @@ function trySpawnSpring(p){
   if(Math.random()>0.15) return;
 
   springs.push({
-    x:p.x+p.w/2-10,
-    y:p.y-20,
-    w:30,
-    h:30
-  });
+  x:p.x+p.w/2-15,
+  y:p.y-25,
+
+  drawW:30,
+  drawH:30,
+
+  w:18,
+  h:18
+});
 
 }
 
@@ -297,10 +316,16 @@ function trySpawnCoin(p){
   if(Math.random()>0.35) return;
 
   coins.push({
-    x:p.x+p.w/2-12,
+    x:p.x+p.w/2-17,
     y:p.y-40,
-    w:34,
-    h:34,
+
+    // визуал
+    drawW:34,
+    drawH:34,
+
+    // хитбокс меньше
+    w:20,
+    h:20,
     taken:false
   });
 
@@ -322,8 +347,12 @@ function trySpawnMonster(p){
   monsters.push({
     x:p.x+p.w/2-20,
     y:p.y-45,
-    w:40,
-    h:40,
+    drawW:40,
+    drawH:40,
+
+    // хитбокс меньше
+    w:30,
+    h:30,
     vx:(Math.random()<.5?-1:1)*(IS_MOBILE?1.4:1.6),
     skin:monsterImages[Math.floor(Math.random()*monsterImages.length)]
   });
@@ -362,6 +391,7 @@ function update(dt){
       if(p.type==="break") p.broken=true;
       else{
         player.vy=JUMP;
+        springBoost = false;
         if(!p.counted){score++;p.counted=true;}
       }
     }
@@ -381,6 +411,7 @@ function update(dt){
     ){
 
       player.vy = JUMP*1.8;
+      springBoost = true;
 
     }
 
@@ -414,12 +445,12 @@ function update(dt){
 
     if(m.x<0||m.x+m.w>GAME_WIDTH) m.vx*=-1;
 
-    if(
-      player.x<m.x+m.w &&
-      player.x+player.w>m.x &&
-      player.y<m.y+m.h &&
-      player.y+player.h>m.y
-    ) gameOver();
+    if(!springBoost &&
+  player.x<m.x+m.w &&
+  player.x+player.w>m.x &&
+  player.y<m.y+m.h &&
+  player.y+player.h>m.y
+) gameOver();
 
   });
 
@@ -484,23 +515,23 @@ function draw(){
 
   const img = platformImages[p.type] || platformImages.normal;
 
-  ctx.drawImage(img,p.x,p.y,p.w,p.h);
+  ctx.drawImage(img,p.x,p.y,p.drawW,p.drawH);
 });
 
 
   monsters.forEach(m=>{
-    ctx.drawImage(m.skin,m.x,m.y,m.w,m.h);
+    ctx.drawImage(m.skin,m.x,m.y,m.drawW,m.drawH);
   });
 
 
   springs.forEach(s=>{
-    ctx.drawImage(springImg,s.x,s.y,s.w,s.h);
+    ctx.drawImage(springImg,s.x,s.y,s.drawW,s.drawH);
   });
 
 
   coins.forEach(c=>{
     if(!c.taken)
-      ctx.drawImage(coinImg,c.x,c.y,c.w,c.h);
+     ctx.drawImage(coinImg,c.x,c.y,c.drawW,c.drawH);
   });
 
 
@@ -510,7 +541,6 @@ function draw(){
   ctx.fillText(`${playerName}: ${score}`,10,26);
 
 }
-
 
 /* ===== LOOP ===== */
 
